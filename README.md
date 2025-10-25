@@ -5,6 +5,9 @@ This code is supplied as is, no warranty.
 
 For personnal use only.
 
+![calc1](./calc1.jpg)
+![calc2](./calc2.jpg)
+
 ### Hotkey basics
 
 Short press: Key pressed and released in under 500 ms. Triggers the primary action.
