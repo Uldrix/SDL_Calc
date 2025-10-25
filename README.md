@@ -1,6 +1,8 @@
 # SDL_Calc
-Python SDL calculator for Clockwork PicoCalc using Luckfox Lyra
+Python SDL calculator for Clockwork PicoCalc using Luckfox Lyra.
+
 This code is supplied as is, no warranty.
+
 For personnal use only.
 
 ### Hotkey basics
