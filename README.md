@@ -5,6 +5,8 @@ This code is supplied as is, no warranty.
 
 For personnal use only.
 
+**Warning : may contain bugs**
+
 
 <p align="center">
   <img src="./calc1.jpg" width="400" alt="calc1">
