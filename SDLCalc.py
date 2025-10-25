@@ -41,6 +41,7 @@ SDLK_DELETE = 127
 SDLK_UP = 1073741906
 SDLK_DOWN = 1073741905
 SDLK_SPACE = 32
+SDLK_h = 104
 SDLK_6 = 54
 SDLK_8 = 56
 SDLK_9 = 57
@@ -49,6 +50,7 @@ SDLK_F1 = 1073741882
 SDLK_F2 = 1073741883
 SDLK_F3 = 1073741884
 SDLK_F4 = 1073741885
+SDLK_F5 = 1073741886
 SDLK_F6 = 1073741887
 SDLK_F7 = 1073741888
 SDLK_F8 = 1073741889
@@ -129,6 +131,7 @@ class Color:
     BTN_EQUALS = (39, 174, 96)
     BTN_GRAPH = (155, 89, 182)
     BTN_OFF = (192, 57, 43)
+    HINT_TEXT = (0, 100, 0)
     WHITE = (255, 255, 255)
     BLACK = (0, 0, 0)
     BLUE = (0, 0, 255)
@@ -157,14 +160,15 @@ def open_any_font(size=10):
     return None
 
 class Button:
-    def __init__(self, x, y, w, h, text, color, value, font):
+    def __init__(self, x, y, w, h, text, color, value, font, hint=""):
         self.rect = SDL_Rect(x, y, w, h)
         self.text = text
         self.color = color
         self.value = value
         self.font = font
+        self.hint = hint
 
-    def draw(self, renderer):
+    def draw(self, renderer, show_hints=True, hint_font=None):
         # Fond du bouton
         sdl2.SDL_SetRenderDrawColor(renderer, *self.color, 255)
         sdl2.SDL_RenderFillRect(renderer, ctypes.byref(self.rect))
@@ -173,7 +177,7 @@ class Button:
         sdl2.SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255)
         sdl2.SDL_RenderDrawRect(renderer, ctypes.byref(self.rect))
         
-        # Texte
+        # Texte principal
         if self.font and self.text:
             text_color = SDL_Color(255, 255, 255, 255)
             text_bytes = self.text.encode("utf-8", errors="ignore")
@@ -186,6 +190,25 @@ class Button:
                     sdl2.SDL_QueryTexture(tex, None, None, ctypes.byref(tw), ctypes.byref(th))
                     tx = self.rect.x + (self.rect.w - tw.value) // 2
                     ty = self.rect.y + (self.rect.h - th.value) // 2
+                    dst = SDL_Rect(tx, ty, tw.value, th.value)
+                    sdl2.SDL_RenderCopy(renderer, tex, None, ctypes.byref(dst))
+                    sdl2.SDL_DestroyTexture(tex)
+                sdl2.SDL_FreeSurface(surf)
+        
+        # Overlay d'aide (hint) en haut à droite
+        if show_hints and self.hint and hint_font:
+            hint_color = SDL_Color(*Color.HINT_TEXT, 255)
+            hint_bytes = self.hint.encode("utf-8", errors="ignore")
+            surf = sdl2_ttf.TTF_RenderText_Solid(hint_font, hint_bytes, hint_color)
+            if surf:
+                tex = sdl2.SDL_CreateTextureFromSurface(renderer, surf)
+                if tex:
+                    tw = c_int()
+                    th = c_int()
+                    sdl2.SDL_QueryTexture(tex, None, None, ctypes.byref(tw), ctypes.byref(th))
+                    # Position: coin supérieur droit avec petit padding
+                    tx = self.rect.x + self.rect.w - tw.value - 2
+                    ty = self.rect.y + 2
                     dst = SDL_Rect(tx, ty, tw.value, th.value)
                     sdl2.SDL_RenderCopy(renderer, tex, None, ctypes.byref(dst))
                     sdl2.SDL_DestroyTexture(tex)
@@ -203,15 +226,35 @@ class Calculator:
         self.just_calculated = False
         self.last_was_error = False
         self.fullscreen_mode = False
+        self.show_hints = True  # Afficher les hints par défaut
 
     def build_layout_compact(self, font_btn):
         self.buttons = []
         btn_w, btn_h = 50, 30
         start_x, start_y, gap = 3, 125, 2
         
+        # Mapping des hints (touches clavier)
+        hints = {
+            'OFF': 'Esc',
+            'CE': 'Del',
+            'sin': 'F1',
+            'cos': 'F2',
+            'tan': 'F3',
+            'pi': 'F4',
+            'e': 'F5',
+            'x2': 'F6',
+            'xy': 'F7',
+            'log': 'F8',
+            'ln': 'F9',
+            '*': '8',
+            '+': '=',
+            '(': '9',
+            ')': '0'
+        }
+        
         # Layout pour colonnes 1-5 avec Bk en position (4,0) = 5ème colonne ligne 1
         layout_main = [
-            # Ligne 1 - Bk est maintenant en position 5 (colonne 5)
+            # Ligne 1
             [('x2', Color.BTN_FUNC, 'x²'), ('xy', Color.BTN_FUNC, 'xʸ'),
              ('log', Color.BTN_FUNC, 'log'), ('ln', Color.BTN_FUNC, 'ln'),
              ('Bk', Color.BTN_CLEAR, '⌫')],
@@ -242,12 +285,13 @@ class Calculator:
             for c, (label, color, val) in enumerate(row):
                 x = start_x + c * (btn_w + gap)
                 y = start_y + r * (btn_h + gap)
-                self.buttons.append(Button(x, y, btn_w, btn_h, label, color, val, font_btn))
+                hint = hints.get(label, "")
+                self.buttons.append(Button(x, y, btn_w, btn_h, label, color, val, font_btn, hint))
         
         # Colonne 6 avec bouton OFF en haut (ligne 0, donc au niveau de la ligne 1 des autres colonnes)
         col6_layout = [
-            ('OFF', Color.BTN_OFF, 'OFF'),    # Ligne 0 (même niveau que ligne 1 des autres)
-            ('sin', Color.BTN_FUNC, 'sin'),    # Ligne 1 (décalé vers le bas)
+            ('OFF', Color.BTN_OFF, 'OFF'),    # Ligne 0
+            ('sin', Color.BTN_FUNC, 'sin'),    # Ligne 1
             ('cos', Color.BTN_FUNC, 'cos'),    # Ligne 2
             ('tan', Color.BTN_FUNC, 'tan'),    # Ligne 3
             ('pi', Color.BTN_FUNC, 'π'),       # Ligne 4
@@ -259,7 +303,8 @@ class Calculator:
         for r, (label, color, val) in enumerate(col6_layout):
             if label:  # Ne pas créer le bouton vide
                 y = start_y + r * (btn_h + gap)
-                self.buttons.append(Button(col6_x, y, btn_w, btn_h, label, color, val, font_btn))
+                hint = hints.get(label, "")
+                self.buttons.append(Button(col6_x, y, btn_w, btn_h, label, color, val, font_btn, hint))
 
     def draw_display(self, renderer, font_display, width, height):
         # Zone d'affichage adaptatif selon le mode
@@ -331,6 +376,10 @@ class Calculator:
             self.scroll_offset = total_lines - max_visible_lines
         else:
             self.scroll_offset = 0
+
+    def toggle_hints(self):
+        """Toggle l'affichage des hints"""
+        self.show_hints = not self.show_hints
 
     def handle_button(self, value):
         # Gestion du bouton OFF
@@ -480,9 +529,10 @@ def main():
     sdl2.SDL_GetWindowSize(window, ctypes.byref(w), ctypes.byref(h))
     width, height = w.value, h.value
     
-    # Police display: 14px, Police boutons: 10px
+    # Police display: 14px, Police boutons: 10px, Police hints: 7px
     font_display = open_any_font(14)
     font_btn = open_any_font(10)
+    font_hint = open_any_font(7)
 
     calc = Calculator()
     calc.build_layout_compact(font_btn)
@@ -511,6 +561,8 @@ def main():
                 
                 if key == SDLK_ESCAPE:
                     running = False
+                elif key == SDLK_h:
+                    calc.toggle_hints()
                 elif key == SDLK_SPACE:
                     calc.toggle_fullscreen()
                 elif key == SDLK_RETURN:
@@ -629,12 +681,19 @@ def main():
                                 calc.expression += str(math.pi)
                         calc.just_calculated = False
                         calc.last_was_error = False
+                    elif key == SDLK_F5:
+                        if calc.just_calculated or calc.last_was_error:
+                            calc.expression = str(math.e)
+                        else:
+                            calc.expression += str(math.e)
+                        calc.just_calculated = False
+                        calc.last_was_error = False
                     elif key == SDLK_F6:
-                        calc.expression += 'sqrt('
+                        calc.expression += '**2'
                         calc.just_calculated = False
                         calc.last_was_error = False
                     elif key == SDLK_F7:
-                        calc.expression += '**2'
+                        calc.expression += '**'
                         calc.just_calculated = False
                         calc.last_was_error = False
                     elif key == SDLK_F8:
@@ -656,7 +715,7 @@ def main():
         # Dessiner les boutons seulement en mode normal
         if not calc.fullscreen_mode:
             for btn in calc.buttons:
-                btn.draw(renderer)
+                btn.draw(renderer, calc.show_hints, font_hint)
 
         sdl2.SDL_RenderPresent(renderer)
         sdl2.SDL_Delay(16)
@@ -665,6 +724,8 @@ def main():
         sdl2_ttf.TTF_CloseFont(font_display)
     if font_btn:
         sdl2_ttf.TTF_CloseFont(font_btn)
+    if font_hint:
+        sdl2_ttf.TTF_CloseFont(font_hint)
     sdl2_ttf.TTF_Quit()
     sdl2.SDL_DestroyRenderer(renderer)
     sdl2.SDL_DestroyWindow(window)
