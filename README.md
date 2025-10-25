@@ -5,8 +5,11 @@ This code is supplied as is, no warranty.
 
 For personnal use only.
 
-![calc1](./calc1.jpg)
-![calc2](./calc2.jpg)
+
+<p align="center">
+  <img src="./calc1.jpg" width="400" alt="calc1">
+  <img src="./calc2.jpg" width="400" alt="calc2">
+</p>
 
 ### Hotkey basics
 
