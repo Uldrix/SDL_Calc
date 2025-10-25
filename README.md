@@ -21,7 +21,7 @@ Hint overlay: On-screen yellow labels show hotkeys in the top-right of each butt
 
 H (short): Toggle the hotkey overlay (on-screen yellow labels on buttons).
 
-I (short): Toggle a centered light-grey info panel with three lines: “Designed by Uldrix”, “For experimentations only”, “Not allowed for commercial use”.
+I (short): Toggle a centered light-grey info panel with information notice.
 
 Space (short): Toggle fullscreen display mode. In fullscreen, only the display area is shown; in normal mode, buttons are visible again.
 
